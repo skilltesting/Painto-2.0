@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inkwell Studio</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body {
+      user-select: none;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 flex flex-col h-screen overflow-hidden">
+
+  <!-- Header -->
+  <header class="flex items-center justify-between border-b border-slate-800 bg-slate-900 px-6 py-3">
+    <div class="flex items-center gap-3">
+      <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400">
+        <i data-lucide="pen-line" class="h-5 w-5"></i>
+      </div>
+      <div>
+        <h1 class="text-sm font-semibold text-slate-50">Inkwell Studio</h1>
+        <p class="text-[10px] text-slate-400">Layered painting app</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <button id="clearBtn" class="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-700 transition">
+        <i data-lucide="rotate-ccw" class="h-3.5 w-3.5"></i> Clear
+      </button>
+      <button id="downloadBtn" class="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-medium text-slate-950 hover:bg-emerald-400 transition">
+        <i data-lucide="download" class="h-3.5 w-3.5"></i> Export PNG
+      </button>
+    </div>
+  </header>
+
+  <!-- Workspace -->
+  <div class="flex flex-1 overflow-hidden">
+    
+    <!-- Sidebar / Toolbar -->
+    <aside class="w-64 border-r border-slate-800 bg-slate-900 p-4 flex flex-col gap-6">
+      <!-- Brush Tools -->
+      <div>
+        <label class="text-xs font-medium text-slate-400 uppercase tracking-wider">Tool</label>
+        <div class="mt-2 grid grid-cols-2 gap-2">
+          <button id="brushBtn" class="flex items-center justify-center gap-2 rounded-lg bg-slate-800 border border-emerald-500 text-emerald-400 p-2 text-xs font-medium">
+            <i data-lucide="paintbrush" class="h-4 w-4"></i> Brush
+          </button>
+          <button id="eraserBtn" class="flex items-center justify-center gap-2 rounded-lg bg-slate-800 border border-transparent text-slate-400 p-2 text-xs font-medium hover:border-slate-700">
+            <i data-lucide="eraser" class="h-4 w-4"></i> Eraser
+          </button>
+        </div>
+      </div>
+
+      <!-- Colors -->
+      <div>
+        <label class="text-xs font-medium text-slate-400 uppercase tracking-wider">Color</label>
+        <div class="mt-2 flex items-center gap-2">
+          <input type="color" id="colorPicker" value="#10b981" class="h-9 w-9 cursor-pointer rounded bg-transparent border-0" />
+          <span id="colorHex" class="text-xs text-slate-400 font-mono">#10b981</span>
+        </div>
+      </div>
+
+      <!-- Brush Size -->
+      <div>
+        <div class="flex justify-between text-xs font-medium text-slate-400">
+          <span>Brush Size</span>
+          <span id="sizeValue" class="text-slate-200">5px</span>
+        </div>
+        <input type="range" id="brushSize" min="1" max="50" value="5" class="mt-2 w-full accent-emerald-500" />
+      </div>
+
+      <!-- Layers -->
+      <div class="flex flex-col flex-1">
+        <div class="flex items-center justify-between mb-2">
+          <label class="text-xs font-medium text-slate-400 uppercase tracking-wider">Layers</label>
+          <button id="addLayerBtn" class="text-emerald-400 hover:text-emerald-300">
+            <i data-lucide="plus" class="h-4 w-4"></i>
+          </button>
+        </div>
+        <div id="layerList" class="flex flex-col gap-1 overflow-y-auto max-h-48 border border-slate-800 rounded-lg p-1 bg-slate-950/50">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+    </aside>
+
+    <!-- Canvas Area -->
+    <main class="flex-1 bg-slate-950 flex items-center justify-center p-6 relative overflow-hidden">
+      <div id="canvasContainer" class="relative bg-slate-900 border border-slate-800 rounded-xl shadow-2xl overflow-hidden cursor-crosshair" style="width: 800px; height: 500px;">
+        <!-- Layers generated via JS -->
+      </div>
+    </main>
+  </div>
+
+  <script>
+    lucide.createIcons();
+
+    const CONTAINER_WIDTH = 800;
+    const CONTAINER_HEIGHT = 500;
+    
+    const canvasContainer = document.getElementById('canvasContainer');
+    const layerList = document.getElementById('layerList');
+    const colorPicker = document.getElementById('colorPicker');
+    const colorHex = document.getElementById('colorHex');
+    const brushSize = document.getElementById('brushSize');
+    const sizeValue = document.getElementById('sizeValue');
+    const brushBtn = document.getElementById('brushBtn');
+    const eraserBtn = document.getElementById('eraserBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const addLayerBtn = document.getElementById('addLayerBtn');
+
+    let layers = [];
+    let activeLayerIndex = 0;
+    let isDrawing = false;
+    let currentMode = 'brush'; // 'brush' or 'eraser'
+    let lastX = 0;
+    let lastY = 0;
+
+    function createLayer(name = `Layer ${layers.length + 1}`) {
+      const canvas = document.createElement('canvas');
+      canvas.width = CONTAINER_WIDTH;
+      canvas.height = CONTAINER_HEIGHT;
+      canvas.className = 'absolute top-0 left-0 w-full h-full';
+      
+      const ctx = canvas.getContext('2d');
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      const layer = { id: Date.now(), name, canvas, ctx };
+      layers.push(layer);
+      canvasContainer.appendChild(canvas);
+      
+      activeLayerIndex = layers.length - 1;
+      renderLayerUI();
+      setupDrawingEvents(canvas);
+    }
+
+    function renderLayerUI() {
+      layerList.innerHTML = '';
+      [...layers].reverse().forEach((layer, revIdx) => {
+        const idx = layers.length - 1 - revIdx;
+        const isActive = idx === activeLayerIndex;
+        
+        const item = document.createElement('div');
+        item.className = `flex items-center justify-between px-3 py-2 rounded-md text-xs cursor-pointer transition ${
+          isActive ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-400 hover:bg-slate-800'
+        }`;
+        
+        item.innerHTML = `
+          <span class="font-medium">${layer.name}</span>
+          ${layers.length > 1 ? `<i data-lucide="trash-2" class="h-3.5 w-3.5 hover:text-red-400 delete-btn"></i>` : ''}
+        `;
+
+        item.addEventListener('click', (e) => {
+          if (e.target.classList.contains('delete-btn')) {
+            e.stopPropagation();
+            deleteLayer(idx);
+          } else {
+            activeLayerIndex = idx;
+            renderLayerUI();
+          }
+        });
+
+        layerList.appendChild(item);
+      });
+      lucide.createIcons();
+    }
+
+    function deleteLayer(index) {
+      if (layers.length <= 1) return;
+      canvasContainer.removeChild(layers[index].canvas);
+      layers.splice(index, 1);
+      activeLayerIndex = Math.max(0, index - 1);
+      renderLayerUI();
+    }
+
+    function setupDrawingEvents(canvas) {
+      const getPos = (e) => {
+        const rect = canvas.getBoundingClientRect();
+        return {
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top
+        };
+      };
+
+      const startDrawing = (e) => {
+        isDrawing = true;
+        const pos = getPos(e);
+        lastX = pos.x;
+        lastY = pos.y;
+      };
+
+      const draw = (e) => {
+        if (!isDrawing) return;
+        const activeLayer = layers[activeLayerIndex];
+        if (!activeLayer) return;
+
+        const ctx = activeLayer.ctx;
+        const pos = getPos(e);
+
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+        ctx.lineTo(pos.x, pos.y);
+
+        if (currentMode === 'eraser') {
+          ctx.globalCompositeOperation = 'destination-out';
+          ctx.lineWidth = brushSize.value;
+        } else {
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.strokeStyle = colorPicker.value;
+          ctx.lineWidth = brushSize.value;
+        }
+
+        ctx.stroke();
+        lastX = pos.x;
+        lastY = pos.y;
+      };
+
+      const stopDrawing = () => { isDrawing = false; };
+
+      canvas.addEventListener('mousedown', startDrawing);
+      canvas.addEventListener('mousemove', draw);
+      canvas.addEventListener('mouseup', stopDrawing);
+      canvas.addEventListener('mouseleave', stopDrawing);
+    }
+
+    // UI Controls
+    colorPicker.addEventListener('input', (e) => {
+      colorHex.textContent = e.target.value;
+    });
+
+    brushSize.addEventListener('input', (e) => {
+      sizeValue.textContent = `${e.target.value}px`;
+    });
+
+    brushBtn.addEventListener('click', () => {
+      currentMode = 'brush';
+      brushBtn.className = 'flex items-center justify-center gap-2 rounded-lg bg-slate-800 border border-emerald-500 text-emerald-400 p-2 text-xs font-medium';
+      eraserBtn.className = 'flex items-center justify-center gap-2 rounded-lg bg-slate-800 border border-transparent text-slate-400 p-2 text-xs font-medium hover:border-slate-700';
+    });
+
+    eraserBtn.addEventListener('click', () => {
+      currentMode = 'eraser';
+      eraserBtn.className = 'flex items-center justify-center gap-2 rounded-lg bg-slate-800 border border-emerald-500 text-emerald-400 p-2 text-xs font-medium';
+      brushBtn.className = 'flex items-center justify-center gap-2 rounded-lg bg-slate-800 border border-transparent text-slate-400 p-2 text-xs font-medium hover:border-slate-700';
+    });
+
+    clearBtn.addEventListener('click', () => {
+      const activeLayer = layers[activeLayerIndex];
+      if (activeLayer) {
+        activeLayer.ctx.clearRect(0, 0, CONTAINER_WIDTH, CONTAINER_HEIGHT);
+      }
+    });
+
+    addLayerBtn.addEventListener('click', () => createLayer());
+
+    downloadBtn.addEventListener('click', () => {
+      const exportCanvas = document.createElement('canvas');
+      exportCanvas.width = CONTAINER_WIDTH;
+      exportCanvas.height = CONTAINER_HEIGHT;
+      const exportCtx = exportCanvas.getContext('2d');
+
+      // Draw dark background
+      exportCtx.fillStyle = '#0f172a';
+      exportCtx.fillRect(0, 0, CONTAINER_WIDTH, CONTAINER_HEIGHT);
+
+      // Merge all layers
+      layers.forEach(layer => {
+        exportCtx.drawImage(layer.canvas, 0, 0);
+      });
+
+      const link = document.createElement('a');
+      link.download = 'inkwell-drawing.png';
+      link.href = exportCanvas.toDataURL();
+      link.click();
+    });
+
+    // Initialize first layer
+    createLayer('Background');
+  </script>
+</body>
+</html>
+
