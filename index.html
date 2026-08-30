@@ -2,284 +2,1066 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Inkwell Studio</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Inkwell Studio Pro — Premium Web Painting App</title>
+
+  <!-- Tailwind CSS & Lucide Icons -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
+
   <style>
-    body {
-      user-select: none;
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+    /* Canvas workspace grid backdrop */
+    .canvas-checkerboard {
+      background-color: #090d16;
+      background-image: 
+        linear-gradient(45deg, #111827 25%, transparent 25%),
+        linear-gradient(-45deg, #111827 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #111827 75%),
+        linear-gradient(-45deg, transparent 75%, #111827 75%);
+      background-size: 20px 20px;
+      background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+    }
+
+    /* Range slider custom styling */
+    input[type=range] {
+      -webkit-appearance: none;
+      background: transparent;
+    }
+    input[type=range]:focus { outline: none; }
+    input[type=range]::-webkit-slider-runnable-track {
+      width: 100%;
+      height: 6px;
+      cursor: pointer;
+      background: #1e293b;
+      border-radius: 3px;
+      border: 1px solid #334155;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      height: 14px;
+      width: 14px;
+      border-radius: 50%;
+      background: #10b981;
+      cursor: pointer;
+      -webkit-appearance: none;
+      margin-top: -5px;
+      box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+    }
+
+    .tool-btn-active {
+      background-color: rgba(16, 185, 129, 0.15) !important;
+      border-color: #10b981 !important;
+      color: #34d399 !important;
+    }
+
+    /* Radial color swatch ring */
+    .color-swatch-selected {
+      ring: 2px;
+      ring-color: #10b981;
+      transform: scale(1.1);
     }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 flex flex-col h-screen overflow-hidden">
+<body class="bg-slate-950 text-slate-100 flex flex-col h-screen overflow-hidden select-none font-sans">
 
-  <!-- Header -->
-  <header class="flex items-center justify-between border-b border-slate-800 bg-slate-900 px-6 py-3">
+  <!-- ================= TOP APP HEADER ================= -->
+  <header class="flex h-14 items-center justify-between border-b border-slate-800 bg-slate-900/90 px-4 backdrop-blur shrink-0 z-20">
+    <!-- Brand / Title -->
     <div class="flex items-center gap-3">
-      <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400">
-        <i data-lucide="pen-line" class="h-5 w-5"></i>
+      <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-lg shadow-emerald-500/10">
+        <i data-lucide="pen-tool" class="h-5 w-5"></i>
       </div>
       <div>
-        <h1 class="text-sm font-semibold text-slate-50">Inkwell Studio</h1>
-        <p class="text-[10px] text-slate-400">Layered painting app</p>
+        <div class="flex items-center gap-2">
+          <h1 class="text-sm font-bold text-slate-100 tracking-wide">Inkwell Studio</h1>
+          <span class="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/20">PRO v2.0</span>
+        </div>
+        <p class="text-[10px] text-slate-400">Layered raster canvas, geometric shapes & cloud-ready export</p>
       </div>
     </div>
+
+    <!-- Central Action Bar: History & View Controls -->
+    <div class="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-950/60 p-1">
+      <button id="undoBtn" disabled title="Undo (Ctrl+Z)" class="flex items-center gap-1 rounded px-2.5 py-1 text-xs font-medium text-slate-400 hover:bg-slate-800 hover:text-slate-200 disabled:opacity-30 disabled:hover:bg-transparent">
+        <i data-lucide="undo-2" class="h-3.5 w-3.5"></i> Undo
+      </button>
+      <button id="redoBtn" disabled title="Redo (Ctrl+Y)" class="flex items-center gap-1 rounded px-2.5 py-1 text-xs font-medium text-slate-400 hover:bg-slate-800 hover:text-slate-200 disabled:opacity-30 disabled:hover:bg-transparent">
+        <i data-lucide="redo-2" class="h-3.5 w-3.5"></i> Redo
+      </button>
+      <div class="h-4 w-px bg-slate-800 my-auto mx-1"></div>
+      <button id="zoomOutBtn" title="Zoom Out" class="rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-200">
+        <i data-lucide="zoom-out" class="h-3.5 w-3.5"></i>
+      </button>
+      <span id="zoomLabel" class="text-[11px] font-mono font-medium text-slate-300 px-1">100%</span>
+      <button id="zoomInBtn" title="Zoom In" class="rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-200">
+        <i data-lucide="zoom-in" class="h-3.5 w-3.5"></i>
+      </button>
+      <button id="zoomResetBtn" title="Reset View" class="rounded px-1.5 py-0.5 text-[10px] text-slate-400 hover:bg-slate-800 hover:text-slate-200">Reset</button>
+    </div>
+
+    <!-- Export & Utilities -->
     <div class="flex items-center gap-2">
-      <button id="clearBtn" class="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-700 transition">
-        <i data-lucide="rotate-ccw" class="h-3.5 w-3.5"></i> Clear
+      <button id="clearActiveLayerBtn" title="Clear current layer canvas" class="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs text-slate-300 hover:border-slate-700 hover:bg-slate-800 transition">
+        <i data-lucide="rotate-ccw" class="h-3.5 w-3.5 text-amber-400"></i> Clear Layer
       </button>
-      <button id="downloadBtn" class="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-medium text-slate-950 hover:bg-emerald-400 transition">
-        <i data-lucide="download" class="h-3.5 w-3.5"></i> Export PNG
-      </button>
+      <div class="relative group">
+        <button id="exportDropdownBtn" class="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3.5 py-1.5 text-xs font-semibold text-slate-950 hover:bg-emerald-400 shadow-md shadow-emerald-500/20 transition">
+          <i data-lucide="download" class="h-3.5 w-3.5"></i> Export
+          <i data-lucide="chevron-down" class="h-3 w-3"></i>
+        </button>
+        <!-- Dropdown Menu -->
+        <div class="absolute right-0 top-full mt-1 hidden w-44 rounded-lg border border-slate-800 bg-slate-900 py-1 shadow-2xl group-hover:block z-50">
+          <button id="exportPngBtn" class="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-slate-300 hover:bg-slate-800 hover:text-white">
+            <i data-lucide="image" class="h-3.5 w-3.5 text-emerald-400"></i> PNG Image (.png)
+          </button>
+          <button id="exportJpgBtn" class="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-slate-300 hover:bg-slate-800 hover:text-white">
+            <i data-lucide="file-type-2" class="h-3.5 w-3.5 text-blue-400"></i> JPEG Image (.jpg)
+          </button>
+          <button id="exportWebpBtn" class="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-slate-300 hover:bg-slate-800 hover:text-white">
+            <i data-lucide="file-code" class="h-3.5 w-3.5 text-purple-400"></i> WEBP Image (.webp)
+          </button>
+        </div>
+      </div>
     </div>
   </header>
 
-  <!-- Workspace -->
-  <div class="flex flex-1 overflow-hidden">
-    
-    <!-- Sidebar / Toolbar -->
-    <aside class="w-64 border-r border-slate-800 bg-slate-900 p-4 flex flex-col gap-6">
-      <!-- Brush Tools -->
-      <div>
-        <label class="text-xs font-medium text-slate-400 uppercase tracking-wider">Tool</label>
-        <div class="mt-2 grid grid-cols-2 gap-2">
-          <button id="brushBtn" class="flex items-center justify-center gap-2 rounded-lg bg-slate-800 border border-emerald-500 text-emerald-400 p-2 text-xs font-medium">
-            <i data-lucide="paintbrush" class="h-4 w-4"></i> Brush
-          </button>
-          <button id="eraserBtn" class="flex items-center justify-center gap-2 rounded-lg bg-slate-800 border border-transparent text-slate-400 p-2 text-xs font-medium hover:border-slate-700">
-            <i data-lucide="eraser" class="h-4 w-4"></i> Eraser
-          </button>
-        </div>
-      </div>
+  <!-- ================= MAIN APP WORKSPACE ================= -->
+  <div class="flex flex-1 overflow-hidden relative">
 
-      <!-- Colors -->
-      <div>
-        <label class="text-xs font-medium text-slate-400 uppercase tracking-wider">Color</label>
-        <div class="mt-2 flex items-center gap-2">
-          <input type="color" id="colorPicker" value="#10b981" class="h-9 w-9 cursor-pointer rounded bg-transparent border-0" />
-          <span id="colorHex" class="text-xs text-slate-400 font-mono">#10b981</span>
-        </div>
-      </div>
+    <!-- LEFT TOOLBAR (TOOLS & SHAPES) -->
+    <aside class="w-16 border-r border-slate-800 bg-slate-900/90 flex flex-col items-center py-3 gap-2 shrink-0 z-10">
+      <button data-tool="brush" title="Paintbrush (B)" class="tool-btn tool-btn-active flex h-10 w-10 flex-col items-center justify-center rounded-xl border border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700 hover:text-slate-200 transition">
+        <i data-lucide="paintbrush" class="h-4 w-4"></i>
+        <span class="text-[9px] mt-0.5">Brush</span>
+      </button>
 
-      <!-- Brush Size -->
-      <div>
-        <div class="flex justify-between text-xs font-medium text-slate-400">
-          <span>Brush Size</span>
-          <span id="sizeValue" class="text-slate-200">5px</span>
-        </div>
-        <input type="range" id="brushSize" min="1" max="50" value="5" class="mt-2 w-full accent-emerald-500" />
-      </div>
+      <button data-tool="eraser" title="Eraser (E)" class="tool-btn flex h-10 w-10 flex-col items-center justify-center rounded-xl border border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700 hover:text-slate-200 transition">
+        <i data-lucide="eraser" class="h-4 w-4"></i>
+        <span class="text-[9px] mt-0.5">Eraser</span>
+      </button>
 
-      <!-- Layers -->
-      <div class="flex flex-col flex-1">
-        <div class="flex items-center justify-between mb-2">
-          <label class="text-xs font-medium text-slate-400 uppercase tracking-wider">Layers</label>
-          <button id="addLayerBtn" class="text-emerald-400 hover:text-emerald-300">
-            <i data-lucide="plus" class="h-4 w-4"></i>
-          </button>
-        </div>
-        <div id="layerList" class="flex flex-col gap-1 overflow-y-auto max-h-48 border border-slate-800 rounded-lg p-1 bg-slate-950/50">
-          <!-- Dynamically populated -->
-        </div>
+      <button data-tool="line" title="Line Tool (L)" class="tool-btn flex h-10 w-10 flex-col items-center justify-center rounded-xl border border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700 hover:text-slate-200 transition">
+        <i data-lucide="minus" class="h-4 w-4"></i>
+        <span class="text-[9px] mt-0.5">Line</span>
+      </button>
+
+      <button data-tool="rectangle" title="Rectangle Tool (R)" class="tool-btn flex h-10 w-10 flex-col items-center justify-center rounded-xl border border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700 hover:text-slate-200 transition">
+        <i data-lucide="square" class="h-4 w-4"></i>
+        <span class="text-[9px] mt-0.5">Rect</span>
+      </button>
+
+      <button data-tool="circle" title="Circle Tool (C)" class="tool-btn flex h-10 w-10 flex-col items-center justify-center rounded-xl border border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700 hover:text-slate-200 transition">
+        <i data-lucide="circle" class="h-4 w-4"></i>
+        <span class="text-[9px] mt-0.5">Circle</span>
+      </button>
+
+      <button data-tool="fill" title="Bucket Fill (F)" class="tool-btn flex h-10 w-10 flex-col items-center justify-center rounded-xl border border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700 hover:text-slate-200 transition">
+        <i data-lucide="paint-bucket" class="h-4 w-4"></i>
+        <span class="text-[9px] mt-0.5">Fill</span>
+      </button>
+
+      <button data-tool="picker" title="Color Eyedropper (I)" class="tool-btn flex h-10 w-10 flex-col items-center justify-center rounded-xl border border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700 hover:text-slate-200 transition">
+        <i data-lucide="pipette" class="h-4 w-4"></i>
+        <span class="text-[9px] mt-0.5">Picker</span>
+      </button>
+
+      <div class="w-8 h-px bg-slate-800 my-1"></div>
+
+      <!-- Color Swatch Indicator Button -->
+      <div class="relative flex flex-col items-center">
+        <input type="color" id="primaryColorInput" value="#10b981" class="absolute inset-0 h-9 w-9 opacity-0 cursor-pointer z-10" />
+        <div id="primaryColorPreview" class="h-9 w-9 rounded-xl border-2 border-slate-700 shadow-inner bg-emerald-500 transition hover:scale-105"></div>
+        <span class="text-[9px] text-slate-400 mt-1">Color</span>
       </div>
     </aside>
 
-    <!-- Canvas Area -->
-    <main class="flex-1 bg-slate-950 flex items-center justify-center p-6 relative overflow-hidden">
-      <div id="canvasContainer" class="relative bg-slate-900 border border-slate-800 rounded-xl shadow-2xl overflow-hidden cursor-crosshair" style="width: 800px; height: 500px;">
-        <!-- Layers generated via JS -->
+    <!-- CENTER CANVAS DISPLAY AREA -->
+    <main id="viewportContainer" class="flex-1 canvas-checkerboard relative overflow-hidden flex items-center justify-center cursor-crosshair">
+      <!-- The dynamic stack of canvas layers is generated & injected here -->
+      <div id="canvasViewport" class="relative shadow-2xl border border-slate-800 bg-slate-900 transition-transform origin-center">
+        <!-- Overlay Canvas for live brush preview / shape rubberbanding -->
+        <canvas id="previewCanvas" class="absolute inset-0 z-30 pointer-events-none"></canvas>
+      </div>
+
+      <!-- Floating Position Tracker -->
+      <div class="absolute bottom-3 left-4 rounded-md border border-slate-800 bg-slate-900/80 px-2.5 py-1 backdrop-blur text-[11px] font-mono text-slate-400 z-10 flex gap-3">
+        <span>X: <strong id="cursorX" class="text-slate-200">0</strong> px</span>
+        <span>Y: <strong id="cursorY" class="text-slate-200">0</strong> px</span>
+        <span class="text-slate-600">|</span>
+        <span>Size: <strong id="canvasDimLabel" class="text-slate-200">1280 × 720</strong></span>
       </div>
     </main>
+
+    <!-- RIGHT CONTROL PANEL (PROPERTIES, LAYERS, PALETTE) -->
+    <aside class="w-72 border-l border-slate-800 bg-slate-900/95 flex flex-col shrink-0 z-10">
+      
+      <!-- TAB NAVIGATION -->
+      <div class="flex border-b border-slate-800 bg-slate-950/50">
+        <button id="tabToolPropsBtn" class="flex-1 py-2 text-xs font-semibold text-emerald-400 border-b-2 border-emerald-500">Brush & Style</button>
+        <button id="tabLayersBtn" class="flex-1 py-2 text-xs font-semibold text-slate-400 hover:text-slate-200">Layers Stack</button>
+      </div>
+
+      <!-- PANEL CONTENT CONTAINERS -->
+      <div class="flex-1 overflow-y-auto p-4 flex flex-col gap-6">
+
+        <!-- ================= SECTION A: TOOL PROPERTIES ================= -->
+        <div id="toolPropsPanel" class="flex flex-col gap-5">
+          <!-- Brush Size Control -->
+          <div>
+            <div class="flex justify-between text-xs font-medium text-slate-300 mb-1">
+              <span class="flex items-center gap-1.5"><i data-lucide="circle-dot" class="h-3.5 w-3.5 text-slate-400"></i> Stroke Size</span>
+              <span id="brushSizeDisplay" class="font-mono text-emerald-400">8 px</span>
+            </div>
+            <input type="range" id="brushSizeInput" min="1" max="150" value="8" />
+          </div>
+
+          <!-- Brush Opacity Control -->
+          <div>
+            <div class="flex justify-between text-xs font-medium text-slate-300 mb-1">
+              <span class="flex items-center gap-1.5"><i data-lucide="eye" class="h-3.5 w-3.5 text-slate-400"></i> Tool Opacity</span>
+              <span id="brushOpacityDisplay" class="font-mono text-emerald-400">100%</span>
+            </div>
+            <input type="range" id="brushOpacityInput" min="1" max="100" value="100" />
+          </div>
+
+          <!-- Shape Outline/Fill Option (Conditional) -->
+          <div id="shapeModeContainer" class="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+            <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-2">Shape Style</label>
+            <div class="grid grid-cols-2 gap-2">
+              <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                <input type="radio" name="shapeStyle" value="stroke" checked class="accent-emerald-500" /> Stroke Only
+              </label>
+              <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                <input type="radio" name="shapeStyle" value="fill" class="accent-emerald-500" /> Solid Fill
+              </label>
+            </div>
+          </div>
+
+          <!-- Color Palette Preset Swatches -->
+          <div>
+            <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-2">Preset Palette</label>
+            <div id="presetPalette" class="grid grid-cols-6 gap-2">
+              <!-- Dynamically populated JS color dots -->
+            </div>
+          </div>
+
+          <!-- Canvas Resize Presets -->
+          <div class="border-t border-slate-800 pt-4">
+            <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-2">Canvas Dimensions</label>
+            <div class="grid grid-cols-2 gap-2">
+              <button data-res="1280x720" class="res-preset-btn rounded border border-slate-800 bg-slate-950/60 py-1 text-center text-[11px] text-slate-300 hover:border-slate-700">1280 × 720 (HD)</button>
+              <button data-res="1920x1080" class="res-preset-btn rounded border border-slate-800 bg-slate-950/60 py-1 text-center text-[11px] text-slate-300 hover:border-slate-700">1920 × 1080 (FHD)</button>
+              <button data-res="800x800" class="res-preset-btn rounded border border-slate-800 bg-slate-950/60 py-1 text-center text-[11px] text-slate-300 hover:border-slate-700">800 × 800 (Square)</button>
+              <button data-res="1080x1350" class="res-preset-btn rounded border border-slate-800 bg-slate-950/60 py-1 text-center text-[11px] text-slate-300 hover:border-slate-700">1080 × 1350 (Social)</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================= SECTION B: LAYERS STACK ================= -->
+        <div id="layersPanel" class="hidden flex-1 flex-col gap-4">
+          <!-- Layer Management Toolbar -->
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Layers Stack</span>
+            <div class="flex items-center gap-1">
+              <button id="addLayerBtn" title="Add New Layer" class="rounded border border-slate-700 bg-slate-800 p-1 text-emerald-400 hover:bg-slate-700 hover:text-emerald-300">
+                <i data-lucide="plus" class="h-4 w-4"></i>
+              </button>
+              <button id="mergeDownBtn" title="Merge Active Layer Down" class="rounded border border-slate-800 bg-slate-900 p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-200">
+                <i data-lucide="arrow-down-to-line" class="h-4 w-4"></i>
+              </button>
+              <button id="deleteLayerBtn" title="Delete Active Layer" class="rounded border border-slate-800 bg-slate-900 p-1 text-slate-400 hover:bg-slate-800 hover:text-rose-400">
+                <i data-lucide="trash-2" class="h-4 w-4"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Active Layer Opacity & Blend Mode -->
+          <div class="rounded-lg border border-slate-800 bg-slate-950/50 p-3 flex flex-col gap-3">
+            <div>
+              <div class="flex justify-between text-xs font-medium text-slate-400 mb-1">
+                <span>Layer Opacity</span>
+                <span id="layerOpacityDisplay" class="font-mono text-emerald-400">100%</span>
+              </div>
+              <input type="range" id="layerOpacityInput" min="0" max="100" value="100" />
+            </div>
+
+            <div>
+              <label class="text-[11px] font-medium text-slate-400 block mb-1">Blend Mode</label>
+              <select id="layerBlendSelect" class="w-full rounded border border-slate-800 bg-slate-900 px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
+                <option value="source-over">Normal</option>
+                <option value="multiply">Multiply</option>
+                <option value="screen">Screen</option>
+                <option value="overlay">Overlay</option>
+                <option value="darken">Darken</option>
+                <option value="lighten">Lighten</option>
+                <option value="color-dodge">Color Dodge</option>
+                <option value="difference">Difference</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Layer Items Scrollable List -->
+          <div id="layersList" class="flex flex-col gap-2 overflow-y-auto max-h-[320px] pr-1">
+            <!-- Dynamically populated via script -->
+          </div>
+        </div>
+
+      </div>
+
+      <!-- STATUS FOOTER -->
+      <div class="border-t border-slate-800 bg-slate-950 px-4 py-2.5 text-[11px] text-slate-400 flex justify-between items-center">
+        <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span> Studio Ready</span>
+        <span id="memoryStatus" class="font-mono text-[10px] text-slate-500">RAM: Optimal</span>
+      </div>
+
+    </aside>
+
   </div>
 
+  <!-- ================= JAVASCRIPT APPLICATION CORE ================= -->
   <script>
-    lucide.createIcons();
+    /**
+     * INKWELL STUDIO PRO ENGINE
+     * Complete Layer-based Canvas Engine written in Modular Vanilla JS
+     */
 
-    const CONTAINER_WIDTH = 800;
-    const CONTAINER_HEIGHT = 500;
-    
-    const canvasContainer = document.getElementById('canvasContainer');
-    const layerList = document.getElementById('layerList');
-    const colorPicker = document.getElementById('colorPicker');
-    const colorHex = document.getElementById('colorHex');
-    const brushSize = document.getElementById('brushSize');
-    const sizeValue = document.getElementById('sizeValue');
-    const brushBtn = document.getElementById('brushBtn');
-    const eraserBtn = document.getElementById('eraserBtn');
-    const clearBtn = document.getElementById('clearBtn');
-    const downloadBtn = document.getElementById('downloadBtn');
-    const addLayerBtn = document.getElementById('addLayerBtn');
+    // --- APPLICATION STATE CONTAINER ---
+    const STATE = {
+      canvas: {
+        width: 1280,
+        height: 720,
+        zoom: 1.0,
+        panX: 0,
+        panY: 0
+      },
+      tools: {
+        current: 'brush', // brush, eraser, line, rectangle, circle, fill, picker
+        color: '#10b981',
+        size: 8,
+        opacity: 1.0,
+        shapeStyle: 'stroke' // stroke, fill
+      },
+      layers: [],
+      activeLayerId: null,
+      history: [],
+      historyIndex: -1,
+      maxHistory: 20,
+      isDrawing: false,
+      lastCoords: { x: 0, y: 0 }
+    };
 
-    let layers = [];
-    let activeLayerIndex = 0;
-    let isDrawing = false;
-    let currentMode = 'brush'; // 'brush' or 'eraser'
-    let lastX = 0;
-    let lastY = 0;
+    // Preset color swatches
+    const COLOR_PRESETS = [
+      '#10b981', '#3b82f6', '#6366f1', '#8b5cf6', '#ec4899', '#f43f5e',
+      '#f97316', '#eab308', '#84cc16', '#06b6d4', '#ffffff', '#94a3b8',
+      '#475569', '#1e293b', '#0f172a', '#000000', '#78350f', '#14532d'
+    ];
 
-    function createLayer(name = `Layer ${layers.length + 1}`) {
-      const canvas = document.createElement('canvas');
-      canvas.width = CONTAINER_WIDTH;
-      canvas.height = CONTAINER_HEIGHT;
-      canvas.className = 'absolute top-0 left-0 w-full h-full';
+    // --- DOM ELEMENT REFERENCES ---
+    const DOM = {
+      viewportContainer: document.getElementById('viewportContainer'),
+      canvasViewport: document.getElementById('canvasViewport'),
+      previewCanvas: document.getElementById('previewCanvas'),
+      previewCtx: document.getElementById('previewCanvas').getContext('2d'),
       
-      const ctx = canvas.getContext('2d');
+      // Controls
+      toolBtns: document.querySelectorAll('.tool-btn'),
+      primaryColorInput: document.getElementById('primaryColorInput'),
+      primaryColorPreview: document.getElementById('primaryColorPreview'),
+      brushSizeInput: document.getElementById('brushSizeInput'),
+      brushSizeDisplay: document.getElementById('brushSizeDisplay'),
+      brushOpacityInput: document.getElementById('brushOpacityInput'),
+      brushOpacityDisplay: document.getElementById('brushOpacityDisplay'),
+      shapeStyleRadios: document.getElementsByName('shapeStyle'),
+      presetPalette: document.getElementById('presetPalette'),
+      
+      // Layer Management
+      layersList: document.getElementById('layersList'),
+      addLayerBtn: document.getElementById('addLayerBtn'),
+      deleteLayerBtn: document.getElementById('deleteLayerBtn'),
+      mergeDownBtn: document.getElementById('mergeDownBtn'),
+      layerOpacityInput: document.getElementById('layerOpacityInput'),
+      layerOpacityDisplay: document.getElementById('layerOpacityDisplay'),
+      layerBlendSelect: document.getElementById('layerBlendSelect'),
+      clearActiveLayerBtn: document.getElementById('clearActiveLayerBtn'),
+      
+      // Tabs
+      tabToolPropsBtn: document.getElementById('tabToolPropsBtn'),
+      tabLayersBtn: document.tabLayersBtn = document.getElementById('tabLayersBtn'),
+      toolPropsPanel: document.getElementById('toolPropsPanel'),
+      layersPanel: document.getElementById('layersPanel'),
+      
+      // History & Zoom
+      undoBtn: document.getElementById('undoBtn'),
+      redoBtn: document.getElementById('redoBtn'),
+      zoomInBtn: document.getElementById('zoomInBtn'),
+      zoomOutBtn: document.getElementById('zoomOutBtn'),
+      zoomResetBtn: document.getElementById('zoomResetBtn'),
+      zoomLabel: document.getElementById('zoomLabel'),
+      
+      // Stats & Export
+      cursorX: document.getElementById('cursorX'),
+      cursorY: document.getElementById('cursorY'),
+      canvasDimLabel: document.getElementById('canvasDimLabel'),
+      exportPngBtn: document.getElementById('exportPngBtn'),
+      exportJpgBtn: document.getElementById('exportJpgBtn'),
+      exportWebpBtn: document.getElementById('exportWebpBtn')
+    };
+
+    // --- INITIALIZATION ---
+    function initApp() {
+      // 1. Initialize Icons
+      lucide.createIcons();
+
+      // 2. Setup Palette UI
+      renderPalettePresets();
+
+      // 3. Setup Canvas Size & Preview Canvas
+      updateCanvasDimensions(STATE.canvas.width, STATE.canvas.height);
+
+      // 4. Create Initial Default Layers
+      createLayer('Background Color', '#0f172a');
+      createLayer('Artwork Layer 1');
+
+      // 5. Register Event Listeners
+      setupToolEvents();
+      setupLayerEvents();
+      setupDrawingEvents();
+      setupKeyboardShortcuts();
+      setupZoomEvents();
+
+      // 6. Save Initial History State
+      saveHistoryState();
+    }
+
+    // --- CANVAS & LAYER ENGINE ---
+    function createLayer(name = 'New Layer', fillColor = null) {
+      const id = 'layer_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+      const canvas = document.createElement('canvas');
+      canvas.width = STATE.canvas.width;
+      canvas.height = STATE.canvas.height;
+      canvas.dataset.layerId = id;
+      canvas.className = 'absolute inset-0 w-full h-full pointer-events-none transition-opacity';
+
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
 
-      const layer = { id: Date.now(), name, canvas, ctx };
-      layers.push(layer);
-      canvasContainer.appendChild(canvas);
-      
-      activeLayerIndex = layers.length - 1;
-      renderLayerUI();
-      setupDrawingEvents(canvas);
+      if (fillColor) {
+        ctx.fillStyle = fillColor;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+
+      const layerObj = {
+        id,
+        name,
+        canvas,
+        ctx,
+        visible: true,
+        opacity: 1.0,
+        blendMode: 'source-over'
+      };
+
+      // Append canvas DOM element below preview canvas
+      DOM.canvasViewport.insertBefore(canvas, DOM.previewCanvas);
+      STATE.layers.push(layerObj);
+      STATE.activeLayerId = id;
+
+      renderLayersUI();
+      return layerObj;
     }
 
-    function renderLayerUI() {
-      layerList.innerHTML = '';
-      [...layers].reverse().forEach((layer, revIdx) => {
-        const idx = layers.length - 1 - revIdx;
-        const isActive = idx === activeLayerIndex;
-        
+    function getActiveLayer() {
+      return STATE.layers.find(l => l.id === STATE.activeLayerId);
+    }
+
+    function updateCanvasDimensions(width, height) {
+      STATE.canvas.width = width;
+      STATE.canvas.height = height;
+
+      DOM.canvasViewport.style.width = width + 'px';
+      DOM.canvasViewport.style.height = height + 'px';
+      DOM.previewCanvas.width = width;
+      DOM.previewCanvas.height = height;
+      DOM.canvasDimLabel.textContent = `${width} × ${height}`;
+
+      // Resize all layer canvases safely
+      STATE.layers.forEach(layer => {
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = layer.canvas.width;
+        tempCanvas.height = layer.canvas.height;
+        tempCanvas.getContext('2d').drawImage(layer.canvas, 0, 0);
+
+        layer.canvas.width = width;
+        layer.canvas.height = height;
+        layer.ctx.drawImage(tempCanvas, 0, 0);
+      });
+    }
+
+    // --- RENDERING LAYER UI LIST ---
+    function renderLayersUI() {
+      DOM.layersList.innerHTML = '';
+
+      // Render top layer first
+      [...STATE.layers].reverse().forEach((layer, index) => {
+        const isActive = layer.id === STATE.activeLayerId;
         const item = document.createElement('div');
-        item.className = `flex items-center justify-between px-3 py-2 rounded-md text-xs cursor-pointer transition ${
-          isActive ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-400 hover:bg-slate-800'
+        item.className = `flex items-center justify-between p-2.5 rounded-lg border text-xs cursor-pointer transition ${
+          isActive 
+            ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-300 shadow-sm' 
+            : 'border-slate-800 bg-slate-950/40 text-slate-400 hover:border-slate-700 hover:text-slate-200'
         }`;
-        
+
         item.innerHTML = `
-          <span class="font-medium">${layer.name}</span>
-          ${layers.length > 1 ? `<i data-lucide="trash-2" class="h-3.5 w-3.5 hover:text-red-400 delete-btn"></i>` : ''}
+          <div class="flex items-center gap-2.5 flex-1 truncate">
+            <button class="toggle-vis-btn text-slate-400 hover:text-white" data-id="${layer.id}">
+              <i data-lucide="${layer.visible ? 'eye' : 'eye-off'}" class="h-3.5 w-3.5"></i>
+            </button>
+            <span class="font-medium truncate">${layer.name}</span>
+          </div>
+          <span class="text-[10px] font-mono opacity-60">${Math.round(layer.opacity * 100)}%</span>
         `;
 
         item.addEventListener('click', (e) => {
-          if (e.target.classList.contains('delete-btn')) {
+          if (e.target.closest('.toggle-vis-btn')) {
             e.stopPropagation();
-            deleteLayer(idx);
+            layer.visible = !layer.visible;
+            layer.canvas.style.display = layer.visible ? 'block' : 'none';
+            renderLayersUI();
           } else {
-            activeLayerIndex = idx;
-            renderLayerUI();
+            STATE.activeLayerId = layer.id;
+            syncLayerPropertiesUI();
+            renderLayersUI();
           }
         });
 
-        layerList.appendChild(item);
+        DOM.layersList.appendChild(item);
       });
+
       lucide.createIcons();
     }
 
-    function deleteLayer(index) {
-      if (layers.length <= 1) return;
-      canvasContainer.removeChild(layers[index].canvas);
-      layers.splice(index, 1);
-      activeLayerIndex = Math.max(0, index - 1);
-      renderLayerUI();
+    function syncLayerPropertiesUI() {
+      const active = getActiveLayer();
+      if (!active) return;
+      DOM.layerOpacityInput.value = active.opacity * 100;
+      DOM.layerOpacityDisplay.textContent = `${Math.round(active.opacity * 100)}%`;
+      DOM.layerBlendSelect.value = active.blendMode;
     }
 
-    function setupDrawingEvents(canvas) {
-      const getPos = (e) => {
-        const rect = canvas.getBoundingClientRect();
-        return {
-          x: e.clientX - rect.left,
-          y: e.clientY - rect.top
-        };
-      };
+    // --- DRAWING INTERACTION ENGINE ---
+    function getCanvasCoordinates(e) {
+      const rect = DOM.canvasViewport.getBoundingClientRect();
+      const scaleX = STATE.canvas.width / rect.width;
+      const scaleY = STATE.canvas.height / rect.height;
 
-      const startDrawing = (e) => {
-        isDrawing = true;
-        const pos = getPos(e);
-        lastX = pos.x;
-        lastY = pos.y;
+      return {
+        x: Math.round((e.clientX - rect.left) * scaleX),
+        y: Math.round((e.clientY - rect.top) * scaleY)
       };
+    }
 
-      const draw = (e) => {
-        if (!isDrawing) return;
-        const activeLayer = layers[activeLayerIndex];
+    function setupDrawingEvents() {
+      const vp = DOM.viewportContainer;
+
+      vp.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return; // Only primary click
+        const coords = getCanvasCoordinates(e);
+        const activeLayer = getActiveLayer();
+
+        if (!activeLayer || !activeLayer.visible) return;
+
+        STATE.isDrawing = true;
+        STATE.lastCoords = coords;
+
+        // Perform instantaneous tools
+        if (STATE.tools.current === 'fill') {
+          floodFill(activeLayer.ctx, coords.x, coords.y, STATE.tools.color);
+          saveHistoryState();
+          STATE.isDrawing = false;
+        } else if (STATE.tools.current === 'picker') {
+          pickColorFromCanvas(coords.x, coords.y);
+          STATE.isDrawing = false;
+        } else if (STATE.tools.current === 'brush' || STATE.tools.current === 'eraser') {
+          drawStroke(activeLayer.ctx, coords, coords);
+        }
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        const coords = getCanvasCoordinates(e);
+        DOM.cursorX.textContent = coords.x;
+        DOM.cursorY.textContent = coords.y;
+
+        if (!STATE.isDrawing) return;
+        const activeLayer = getActiveLayer();
         if (!activeLayer) return;
 
-        const ctx = activeLayer.ctx;
-        const pos = getPos(e);
+        if (STATE.tools.current === 'brush' || STATE.tools.current === 'eraser') {
+          drawStroke(activeLayer.ctx, STATE.lastCoords, coords);
+          STATE.lastCoords = coords;
+        } else if (['line', 'rectangle', 'circle'].includes(STATE.tools.current)) {
+          // Render preview shapes on top preview canvas
+          renderShapePreview(STATE.lastCoords, coords);
+        }
+      });
 
-        ctx.beginPath();
-        ctx.moveTo(lastX, lastY);
-        ctx.lineTo(pos.x, pos.y);
+      window.addEventListener('mouseup', (e) => {
+        if (!STATE.isDrawing) return;
+        STATE.isDrawing = false;
+        
+        const coords = getCanvasCoordinates(e);
+        const activeLayer = getActiveLayer();
 
-        if (currentMode === 'eraser') {
-          ctx.globalCompositeOperation = 'destination-out';
-          ctx.lineWidth = brushSize.value;
-        } else {
-          ctx.globalCompositeOperation = 'source-over';
-          ctx.strokeStyle = colorPicker.value;
-          ctx.lineWidth = brushSize.value;
+        // Commit shapes to active layer canvas
+        if (activeLayer && ['line', 'rectangle', 'circle'].includes(STATE.tools.current)) {
+          commitShapeToCanvas(activeLayer.ctx, STATE.lastCoords, coords);
+          DOM.previewCtx.clearRect(0, 0, STATE.canvas.width, STATE.canvas.height);
         }
 
-        ctx.stroke();
-        lastX = pos.x;
-        lastY = pos.y;
-      };
-
-      const stopDrawing = () => { isDrawing = false; };
-
-      canvas.addEventListener('mousedown', startDrawing);
-      canvas.addEventListener('mousemove', draw);
-      canvas.addEventListener('mouseup', stopDrawing);
-      canvas.addEventListener('mouseleave', stopDrawing);
+        saveHistoryState();
+      });
     }
 
-    // UI Controls
-    colorPicker.addEventListener('input', (e) => {
-      colorHex.textContent = e.target.value;
-    });
+    // --- STROKE & SHAPE DRAWING LOGIC ---
+    function drawStroke(ctx, start, end) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(start.x, start.y);
+      ctx.lineTo(end.x, end.y);
 
-    brushSize.addEventListener('input', (e) => {
-      sizeValue.textContent = `${e.target.value}px`;
-    });
+      if (STATE.tools.current === 'eraser') {
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.lineWidth = STATE.tools.size;
+      } else {
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.strokeStyle = STATE.tools.color;
+        ctx.lineWidth = STATE.tools.size;
+        ctx.globalAlpha = STATE.tools.opacity;
+      }
 
-    brushBtn.addEventListener('click', () => {
-      currentMode = 'brush';
-      brushBtn.className = 'flex items-center justify-center gap-2 rounded-lg bg-slate-800 border border-emerald-500 text-emerald-400 p-2 text-xs font-medium';
-      eraserBtn.className = 'flex items-center justify-center gap-2 rounded-lg bg-slate-800 border border-transparent text-slate-400 p-2 text-xs font-medium hover:border-slate-700';
-    });
+      ctx.stroke();
+      ctx.restore();
+    }
 
-    eraserBtn.addEventListener('click', () => {
-      currentMode = 'eraser';
-      eraserBtn.className = 'flex items-center justify-center gap-2 rounded-lg bg-slate-800 border border-emerald-500 text-emerald-400 p-2 text-xs font-medium';
-      brushBtn.className = 'flex items-center justify-center gap-2 rounded-lg bg-slate-800 border border-transparent text-slate-400 p-2 text-xs font-medium hover:border-slate-700';
-    });
+    function renderShapePreview(start, end) {
+      const pCtx = DOM.previewCtx;
+      pCtx.clearRect(0, 0, STATE.canvas.width, STATE.canvas.height);
+      pCtx.save();
+      pCtx.strokeStyle = STATE.tools.color;
+      pCtx.fillStyle = STATE.tools.color;
+      pCtx.lineWidth = STATE.tools.size;
+      pCtx.globalAlpha = STATE.tools.opacity;
 
-    clearBtn.addEventListener('click', () => {
-      const activeLayer = layers[activeLayerIndex];
-      if (activeLayer) {
-        activeLayer.ctx.clearRect(0, 0, CONTAINER_WIDTH, CONTAINER_HEIGHT);
+      drawShapePath(pCtx, start, end);
+      pCtx.restore();
+    }
+
+    function commitShapeToCanvas(ctx, start, end) {
+      ctx.save();
+      ctx.strokeStyle = STATE.tools.color;
+      ctx.fillStyle = STATE.tools.color;
+      ctx.lineWidth = STATE.tools.size;
+      ctx.globalAlpha = STATE.tools.opacity;
+
+      drawShapePath(ctx, start, end);
+      ctx.restore();
+    }
+
+    function drawShapePath(ctx, start, end) {
+      ctx.beginPath();
+      if (STATE.tools.current === 'line') {
+        ctx.moveTo(start.x, start.y);
+        ctx.lineTo(end.x, end.y);
+        ctx.stroke();
+      } else if (STATE.tools.current === 'rectangle') {
+        const x = Math.min(start.x, end.x);
+        const y = Math.min(start.y, end.y);
+        const w = Math.abs(end.x - start.x);
+        const h = Math.abs(end.y - start.y);
+        
+        if (STATE.tools.shapeStyle === 'fill') {
+          ctx.fillRect(x, y, w, h);
+        } else {
+          ctx.strokeRect(x, y, w, h);
+        }
+      } else if (STATE.tools.current === 'circle') {
+        const radius = Math.hypot(end.x - start.x, end.y - start.y);
+        ctx.arc(start.x, start.y, radius, 0, Math.PI * 2);
+        if (STATE.tools.shapeStyle === 'fill') {
+          ctx.fill();
+        } else {
+          ctx.stroke();
+        }
+      }
+    }
+
+    // --- ALGORITHMIC BUCKET FLOOD FILL ---
+    function floodFill(ctx, startX, startY, fillColorHex) {
+      const width = STATE.canvas.width;
+      const height = STATE.canvas.height;
+      if (startX < 0 || startX >= width || startY < 0 || startY >= height) return;
+
+      const imgData = ctx.getImageData(0, 0, width, height);
+      const data = imgData.data;
+
+      // Convert target Hex color to RGBA
+      const targetRgb = hexToRgb(fillColorHex);
+      const startPos = (startY * width + startX) * 4;
+      const startR = data[startPos];
+      const startG = data[startPos + 1];
+      const startB = data[startPos + 2];
+      const startA = data[startPos + 3];
+
+      if (startR === targetRgb.r && startG === targetRgb.g && startB === targetRgb.b && startA === 255) {
+        return; // Color is identical
+      }
+
+      const matchStartColor = (pos) => {
+        return (
+          data[pos] === startR &&
+          data[pos + 1] === startG &&
+          data[pos + 2] === startB &&
+          data[pos + 3] === startA
+        );
+      };
+
+      const colorPixel = (pos) => {
+        data[pos] = targetRgb.r;
+        data[pos + 1] = targetRgb.g;
+        data[pos + 2] = targetRgb.b;
+        data[pos + 3] = 255;
+      };
+
+      const queue = [[startX, startY]];
+
+      while (queue.length > 0) {
+        const [x, y] = queue.pop();
+        const pos = (y * width + x) * 4;
+
+        if (matchStartColor(pos)) {
+          colorPixel(pos);
+
+          if (x > 0) queue.push([x - 1, y]);
+          if (x < width - 1) queue.push([x + 1, y]);
+          if (y > 0) queue.push([x, y - 1]);
+          if (y < height - 1) queue.push([x, y + 1]);
+        }
+      }
+
+      ctx.putImageData(imgData, 0, 0);
+    }
+
+    function pickColorFromCanvas(x, y) {
+      // Pick top visible color across stack
+      for (let i = STATE.layers.length - 1; i >= 0; i--) {
+        const layer = STATE.layers[i];
+        if (!layer.visible) continue;
+        const pixel = layer.ctx.getImageData(x, y, 1, 1).data;
+        if (pixel[3] > 0) {
+          const hex = rgbToHex(pixel[0], pixel[1], pixel[2]);
+          updatePrimaryColor(hex);
+          break;
+        }
+      }
+    }
+
+    // --- TOOLBAR & EVENT BINDINGS ---
+    function setupToolEvents() {
+      // Tool selector buttons
+      DOM.toolBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          DOM.toolBtns.forEach(b => b.classList.remove('tool-btn-active'));
+          btn.classList.add('tool-btn-active');
+          STATE.tools.current = btn.dataset.tool;
+        });
+      });
+
+      // Color pickers
+      DOM.primaryColorInput.addEventListener('input', (e) => {
+        updatePrimaryColor(e.target.value);
+      });
+
+      // Brush properties
+      DOM.brushSizeInput.addEventListener('input', (e) => {
+        STATE.tools.size = parseInt(e.target.value);
+        DOM.brushSizeDisplay.textContent = `${STATE.tools.size} px`;
+      });
+
+      DOM.brushOpacityInput.addEventListener('input', (e) => {
+        STATE.tools.opacity = parseFloat(e.target.value) / 100;
+        DOM.brushOpacityDisplay.textContent = `${e.target.value}%`;
+      });
+
+      // Shape Radios
+      Array.from(DOM.shapeStyleRadios).forEach(radio => {
+        radio.addEventListener('change', (e) => {
+          STATE.tools.shapeStyle = e.target.value;
+        });
+      });
+
+      // Canvas Resolution Presets
+      document.querySelectorAll('.res-preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const [w, h] = btn.dataset.res.split('x').map(Number);
+          updateCanvasDimensions(w, h);
+          saveHistoryState();
+        });
+      });
+
+      // Sidebar Tab Switching
+      DOM.tabToolPropsBtn.addEventListener('click', () => {
+        DOM.tabToolPropsBtn.className = 'flex-1 py-2 text-xs font-semibold text-emerald-400 border-b-2 border-emerald-500';
+        DOM.tabLayersBtn.className = 'flex-1 py-2 text-xs font-semibold text-slate-400 hover:text-slate-200';
+        DOM.toolPropsPanel.classList.remove('hidden');
+        DOM.layersPanel.classList.add('hidden');
+        DOM.layersPanel.classList.remove('flex');
+      });
+
+      DOM.tabLayersBtn.addEventListener('click', () => {
+        DOM.tabLayersBtn.className = 'flex-1 py-2 text-xs font-semibold text-emerald-400 border-b-2 border-emerald-500';
+        DOM.tabToolPropsBtn.className = 'flex-1 py-2 text-xs font-semibold text-slate-400 hover:text-slate-200';
+        DOM.layersPanel.classList.remove('hidden');
+        DOM.layersPanel.classList.add('flex');
+        DOM.toolPropsPanel.classList.add('hidden');
+      });
+    }
+
+    function setupLayerEvents() {
+      DOM.addLayerBtn.addEventListener('click', () => {
+        createLayer(`Layer ${STATE.layers.length + 1}`);
+        saveHistoryState();
+      });
+
+      DOM.deleteLayerBtn.addEventListener('click', () => {
+        if (STATE.layers.length <= 1) return;
+        const active = getActiveLayer();
+        if (active) {
+          DOM.canvasViewport.removeChild(active.canvas);
+          STATE.layers = STATE.layers.filter(l => l.id !== active.id);
+          STATE.activeLayerId = STATE.layers[STATE.layers.length - 1].id;
+          renderLayersUI();
+          saveHistoryState();
+        }
+      });
+
+      DOM.clearActiveLayerBtn.addEventListener('click', () => {
+        const active = getActiveLayer();
+        if (active) {
+          active.ctx.clearRect(0, 0, STATE.canvas.width, STATE.canvas.height);
+          saveHistoryState();
+        }
+      });
+
+      DOM.layerOpacityInput.addEventListener('input', (e) => {
+        const active = getActiveLayer();
+        if (active) {
+          active.opacity = parseFloat(e.target.value) / 100;
+          active.canvas.style.opacity = active.opacity;
+          DOM.layerOpacityDisplay.textContent = `${e.target.value}%`;
+        }
+      });
+
+      DOM.layerBlendSelect.addEventListener('change', (e) => {
+        const active = getActiveLayer();
+        if (active) {
+          active.blendMode = e.target.value;
+          active.canvas.style.mixBlendMode = active.blendMode;
+        }
+      });
+    }
+
+    // --- PALETTE PRESETS ---
+    function renderPalettePresets() {
+      DOM.presetPalette.innerHTML = '';
+      COLOR_PRESETS.forEach(hex => {
+        const dot = document.createElement('button');
+        dot.className = 'h-6 w-6 rounded-md border border-slate-700/60 transition hover:scale-110 focus:outline-none';
+        dot.style.backgroundColor = hex;
+        dot.addEventListener('click', () => updatePrimaryColor(hex));
+        DOM.presetPalette.appendChild(dot);
+      });
+    }
+
+    function updatePrimaryColor(hex) {
+      STATE.tools.color = hex;
+      DOM.primaryColorInput.value = hex;
+      DOM.primaryColorPreview.style.backgroundColor = hex;
+    }
+
+    // --- UNDO / REDO HISTORY SYSTEM ---
+    function saveHistoryState() {
+      // Truncate redo tree if needed
+      if (STATE.historyIndex < STATE.history.length - 1) {
+        STATE.history = STATE.history.slice(0, STATE.historyIndex + 1);
+      }
+
+      // Snapshot layer canvas buffers
+      const snapshot = STATE.layers.map(layer => {
+        const temp = document.createElement('canvas');
+        temp.width = layer.canvas.width;
+        temp.height = layer.canvas.height;
+        temp.getContext('2d').drawImage(layer.canvas, 0, 0);
+        return {
+          id: layer.id,
+          name: layer.name,
+          visible: layer.visible,
+          opacity: layer.opacity,
+          blendMode: layer.blendMode,
+          buffer: temp
+        };
+      });
+
+      STATE.history.push(snapshot);
+      if (STATE.history.length > STATE.maxHistory) {
+        STATE.history.shift();
+      } else {
+        STATE.historyIndex++;
+      }
+
+      updateHistoryButtons();
+    }
+
+    function restoreHistoryState(index) {
+      const snapshot = STATE.history[index];
+      if (!snapshot) return;
+
+      snapshot.forEach(snap => {
+        let layer = STATE.layers.find(l => l.id === snap.id);
+        if (layer) {
+          layer.ctx.clearRect(0, 0, STATE.canvas.width, STATE.canvas.height);
+          layer.ctx.drawImage(snap.buffer, 0, 0);
+          layer.opacity = snap.opacity;
+          layer.visible = snap.visible;
+          layer.canvas.style.opacity = snap.opacity;
+          layer.canvas.style.display = snap.visible ? 'block' : 'none';
+        }
+      });
+
+      renderLayersUI();
+      updateHistoryButtons();
+    }
+
+    function updateHistoryButtons() {
+      DOM.undoBtn.disabled = STATE.historyIndex <= 0;
+      DOM.redoBtn.disabled = STATE.historyIndex >= STATE.history.length - 1;
+    }
+
+    DOM.undoBtn.addEventListener('click', () => {
+      if (STATE.historyIndex > 0) {
+        STATE.historyIndex--;
+        restoreHistoryState(STATE.historyIndex);
       }
     });
 
-    addLayerBtn.addEventListener('click', () => createLayer());
+    DOM.redoBtn.addEventListener('click', () => {
+      if (STATE.historyIndex < STATE.history.length - 1) {
+        STATE.historyIndex++;
+        restoreHistoryState(STATE.historyIndex);
+      }
+    });
 
-    downloadBtn.addEventListener('click', () => {
+    // --- ZOOM & PAN ENGINE ---
+    function setupZoomEvents() {
+      const setZoom = (zoom) => {
+        STATE.canvas.zoom = Math.max(0.2, Math.min(3.0, zoom));
+        DOM.canvasViewport.style.transform = `scale(${STATE.canvas.zoom})`;
+        DOM.zoomLabel.textContent = `${Math.round(STATE.canvas.zoom * 100)}%`;
+      };
+
+      DOM.zoomInBtn.addEventListener('click', () => setZoom(STATE.canvas.zoom + 0.15));
+      DOM.zoomOutBtn.addEventListener('click', () => setZoom(STATE.canvas.zoom - 0.15));
+      DOM.zoomResetBtn.addEventListener('click', () => setZoom(1.0));
+
+      // Mouse Wheel Zoom
+      DOM.viewportContainer.addEventListener('wheel', (e) => {
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          const delta = e.deltaY < 0 ? 0.1 : -0.1;
+          setZoom(STATE.canvas.zoom + delta);
+        }
+      }, { passive: false });
+    }
+
+    // --- KEYBOARD SHORTCUTS ---
+    function setupKeyboardShortcuts() {
+      window.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+
+        const key = e.key.toLowerCase();
+        if (key === 'b') setTool('brush');
+        else if (key === 'e') setTool('eraser');
+        else if (key === 'l') setTool('line');
+        else if (key === 'r') setTool('rectangle');
+        else if (key === 'c') setTool('circle');
+        else if (key === 'f') setTool('fill');
+        else if (key === 'i') setTool('picker');
+        else if ((e.ctrlKey || e.metaKey) && key === 'z') {
+          e.preventDefault();
+          if (e.shiftKey) DOM.redoBtn.click();
+          else DOM.undoBtn.click();
+        } else if ((e.ctrlKey || e.metaKey) && key === 'y') {
+          e.preventDefault();
+          DOM.redoBtn.click();
+        }
+      });
+    }
+
+    function setTool(toolName) {
+      const btn = document.querySelector(`[data-tool="${toolName}"]`);
+      if (btn) btn.click();
+    }
+
+    // --- EXPORT COMPOSITOR ENGINE ---
+    function exportCanvasImage(format = 'png') {
       const exportCanvas = document.createElement('canvas');
-      exportCanvas.width = CONTAINER_WIDTH;
-      exportCanvas.height = CONTAINER_HEIGHT;
-      const exportCtx = exportCanvas.getContext('2d');
+      exportCanvas.width = STATE.canvas.width;
+      exportCanvas.height = STATE.canvas.height;
+      const eCtx = exportCanvas.getContext('2d');
 
-      // Draw dark background
-      exportCtx.fillStyle = '#0f172a';
-      exportCtx.fillRect(0, 0, CONTAINER_WIDTH, CONTAINER_HEIGHT);
-
-      // Merge all layers
-      layers.forEach(layer => {
-        exportCtx.drawImage(layer.canvas, 0, 0);
+      // Flatten visible layers sequentially
+      STATE.layers.forEach(layer => {
+        if (layer.visible) {
+          eCtx.save();
+          eCtx.globalAlpha = layer.opacity;
+          eCtx.globalCompositeOperation = layer.blendMode;
+          eCtx.drawImage(layer.canvas, 0, 0);
+          eCtx.restore();
+        }
       });
 
       const link = document.createElement('a');
-      link.download = 'inkwell-drawing.png';
-      link.href = exportCanvas.toDataURL();
+      link.download = `inkwell-artwork-${Date.now()}.${format}`;
+      link.href = exportCanvas.toDataURL(`image/${format}`, 0.95);
       link.click();
-    });
+    }
 
-    // Initialize first layer
-    createLayer('Background');
+    DOM.exportPngBtn.addEventListener('click', () => exportCanvasImage('png'));
+    DOM.exportJpgBtn.addEventListener('click', () => exportCanvasImage('jpeg'));
+    DOM.exportWebpBtn.addEventListener('click', () => exportCanvasImage('webp'));
+
+    // --- COLOR CONVERSION UTILITIES ---
+    function hexToRgb(hex) {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      } : { r: 0, g: 0, b: 0 };
+    }
+
+    function rgbToHex(r, g, b) {
+      return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+    }
+
+    // --- INITIALIZE APPLICATION ON DOM LOAD ---
+    document.addEventListener('DOMContentLoaded', initApp);
   </script>
 </body>
 </html>
+
 
